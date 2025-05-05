@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Router Dashboard</title>
+    <link href="/static/bootstrap/bootstrap.min.css" rel="stylesheet">
+    <script src="/static/chartjs/chart.min.js"></script>
+    <style>
+        .card { margin-bottom: 20px; }
+        canvas { max-height: 300px; }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <h1 class="mb-4">Router Dashboard</h1>
+        
+        <!-- Network Traffic -->
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">ens18 Traffic (KB)</div>
+                    <div class="card-body">
+                        <canvas id="ens18Chart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">ens19 Traffic (KB)</div>
+                    <div class="card-body">
+                        <canvas id="ens19Chart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- DHCP Leases -->
+        <div class="card">
+            <div class="card-header">DHCP Leases</div>
+            <div class="card-body">
+                <table class="table table-striped" id="leasesTable">
+                    <thead>
+                        <tr>
+                            <th>IP Address</th>
+                            <th>MAC Address</th>
+                            <th>Hostname</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- System Health -->
+        <div class="card">
+            <div class="card-header">System Health</div>
+            <div class="card-body">
+                <p>CPU Usage: <span id="cpu">0%</span></p>
+                <div class="progress mb-2">
+                    <div id="cpuBar" class="progress-bar" role="progressbar" style="width: 0%"></div>
+                </div>
+                <p>Memory Usage: <span id="memory">0%</span></p>
+                <div class="progress">
+                    <div id="memoryBar" class="progress-bar" role="progressbar" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Chart.js setup
+        const ctx18 = document.getElementById('ens18Chart').getContext('2d');
+        const ctx19 = document.getElementById('ens19Chart').getContext('2d');
+        const ens18Chart = new Chart(ctx18, {
+            type: 'line',
+            data: { labels: [], datasets: [
+                { label: 'Sent', data: [], borderColor: 'blue', fill: false },
+                { label: 'Received', data: [], borderColor: 'green', fill: false }
+            ]},
+            options: { scales: { y: { beginAtZero: true } } }
+        });
+        const ens19Chart = new Chart(ctx19, {
+            type: 'line',
+            data: { labels: [], datasets: [
+                { label: 'Sent', data: [], borderColor: 'blue', fill: false },
+                { label: 'Received', data: [], borderColor: 'green', fill: false }
+            ]},
+            options: { scales: { y: { beginAtZero: true } } }
+        });
+
+        // Update functions
+        function updateTraffic() {
+            fetch('/traffic_data')
+                .then(response => response.json())
+                .then(data => {
+                    ens18Chart.data.labels = data.ens18.times;
+                    ens18Chart.data.datasets[0].data = data.ens18.sent;
+                    ens18Chart.data.datasets[1].data = data.ens18.received;
+                    ens18Chart.update();
+
+                    ens19Chart.data.labels = data.ens19.times;
+                    ens19Chart.data.datasets[0].data = data.ens19.sent;
+                    ens19Chart.data.datasets[1].data = data.ens19.received;
+                    ens19Chart.update();
+                });
+        }
+
+        function updateLeases() {
+            fetch('/dhcp_leases')
+                .then(response => response.json())
+                .then(data => {
+                    const tbody = document.querySelector('#leasesTable tbody');
+                    tbody.innerHTML = '';
+                    data.forEach(lease => {
+                        const row = `<tr>
+                            <td>${lease.ip}</td>
+                            <td>${lease.mac}</td>
+                            <td>${lease.hostname}</td>
+                        </tr>`;
+                        tbody.innerHTML += row;
+                    });
+                });
+        }
+
+        function updateHealth() {
+            fetch('/system_health')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('cpu').textContent = data.cpu_percent.toFixed(1) + '%';
+                    document.getElementById('cpuBar').style.width = data.cpu_percent + '%';
+                    document.getElementById('memory').textContent = data.memory_percent.toFixed(1) + '%';
+                    document.getElementById('memoryBar').style.width = data.memory_percent + '%';
+                });
+        }
+
+        // Initial update
+        updateTraffic();
+        updateLeases();
+        updateHealth();
+
+        // Periodic updates every 5 seconds
+        setInterval(() => {
+            updateTraffic();
+            updateLeases();
+            updateHealth();
+        }, 5000);
+    </script>
+</body>
+</html>
