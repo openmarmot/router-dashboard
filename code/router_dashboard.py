@@ -141,7 +141,7 @@ def traffic_data():
             'ens19': {'times': [], 'sent': [], 'received': []}}
     for row in reversed(rows):
         ts, iface, sent, recv = row
-        data[iface]['times'].append(ts.strftime('%H:%M:%S'))
+        data[iface]['times'].append(ts.split()[1].split('.')[0])
         data[iface]['sent'].append(sent / 1024)  # Convert to KB
         data[iface]['received'].append(recv / 1024)
     return jsonify(data)
